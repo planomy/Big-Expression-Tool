@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIG Expression Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Make textarea and output div fonts match perfectly */
+        .editor-font {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 16px;
+            line-height: 1.5;
+            padding: 20px;
+        }
+        #editor-container {
+            position: relative;
+            height: 60vh; /* Controlled height */
+            min-height: 400px;
+        }
+        #highlighted-output {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: transparent; /* Text is invisible, we only see the background highlights */
+            pointer-events: none; /* Allows clicks to go through to the textarea */
+            overflow-y: auto;
+            border: 1px solid #4a5568;
+            border-radius: 0.5rem;
+            background-color: #1a202c;
+        }
+        #text-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            color: #e2e8f0;
+            border: none;
+            outline: none;
+            resize: none; /* Disable manual resize */
+            -webkit-text-fill-color: rgba(226, 232, 240, 0.9); /* Ensures text color is visible on top of highlights */
+        }
+
+        /* Highlighting Styles */
+        .passive { background-color: rgba(239, 68, 68, 0.3); border-radius: 3px; }
+        .bad-start { background-color: rgba(59, 130, 246, 0.3); border-radius: 3px; }
+        .stop-word { background-color: rgba(234, 179, 8, 0.3); border-radius: 3px; }
+        .filler { background-color: rgba(168, 85, 247, 0.3); border-radius: 3px; }
+        .basic { background-color: rgba(34, 197, 94, 0.3); border-radius: 3px; }
+        .sophisticated { background-color: rgba(236, 72, 153, 0.3); border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200">
+
+    <div id="target-modal" class="fixed inset-0 bg-slate-900 bg-opacity-80 flex items-center justify-center z-50">
+        <div class="bg-slate-800 p-8 rounded-lg shadow-2xl w-full max-w-sm text-center">
+            <h1 class="text-3xl font-bold text-white mb-2">BIG Expression Tool</h1>
+            <p class="text-slate-400 mb-6">Enter your target word count to begin.</p>
+            <input type="number" id="word-target-input" class="bg-slate-700 text-white w-full p-3 rounded-md text-center text-xl focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 500">
+            <button id="set-target-btn" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg w-full transition-colors">Start Writing</button>
+        </div>
+    </div>
+
+    <div id="main-content" class="container mx-auto p-4 md:p-8 hidden">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white">BIG Expression Tool</h1>
+            <p class="text-slate-400">Live feedback to elevate your writing.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Editor -->
+            <div class="lg:col-span-2">
+                <div id="editor-container">
+                    <div id="highlighted-output" class="editor-font"></div>
+                    <textarea id="text-input" class="editor-font" rows="30" placeholder="Paste or start writing your text here..."></textarea>
+                </div>
+            </div>
+
+            <!-- Right Column: Analysis -->
+            <div class="bg-slate-800 p-6 rounded-lg">
+                <h2 class="text-2xl font-bold mb-4 border-b border-slate-700 pb-2">Analysis</h2>
+                
+                <!-- Word Count -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-baseline">
+                        <h3 class="text-lg font-semibold">Word Count</h3>
+                        <p class="text-sm text-slate-400">Target: <span id="target-display">0</span></p>
+                    </div>
+                    <div id="word-counter" class="text-5xl font-bold text-center py-4 rounded-lg bg-slate-700 transition-colors">0</div>
+                    <div id="word-count-warning" class="hidden mt-2 text-center bg-red-500/20 text-red-300 p-2 rounded-md">
+                        <p class="font-bold">Word limit reached!</p>
+                        <p class="text-sm">Consider trimming your text.</p>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="mb-6">
+                     <h3 class="text-lg font-semibold mb-2">Highlight Legend</h3>
+                     <div class="grid grid-cols-2 gap-2 text-sm">
+                         <div class="flex items-center"><span class="w-3 h-3 rounded-full mr-2 passive"></span>Passive Words</div>
+                         <div class="flex items-center"><span class="w-3 h-3 rounded-full mr-2 bad-start"></span>Bad Starts</div>
+                         <div class="flex items-center"><span class="w-3 h-3 rounded-full mr-2 stop-word"></span>Stop Words</div>
+                         <div class="flex items-center"><span class="w-3 h-3 rounded-full mr-2 filler"></span>Filler Words</div>
+                         <div class="flex items-center"><span class="w-3 h-3 rounded-full mr-2 basic"></span>Basic Words</div>
+                         <div class="flex items-center"><span class="w-3 h-3 rounded-full mr-2 sophisticated"></span>Sophisticated</div>
+                     </div>
+                </div>
+
+                <!-- Advanced Metrics -->
+                 <div>
+                    <h3 class="text-lg font-semibold mb-3">Advanced Metrics</h3>
+                    <div class="space-y-3 bg-slate-700/50 p-4 rounded-md">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-400">Readability (Grade):</span>
+                            <span id="readability-score" class="font-mono font-semibold">--</span>
+                        </div>
+                         <div class="flex justify-between text-sm">
+                            <span class="text-slate-400">Lexical Diversity:</span>
+                            <span id="lexical-diversity" class="font-mono font-semibold">--</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-400">Avg Sentence Length:</span>
+                            <span id="avg-sentence-length" class="font-mono font-semibold">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sentence Lengths -->
+                <div class="mt-6">
+                    <h3 class="text-lg font-semibold mb-2">Sentence Lengths</h3>
+                    <div id="sentence-lengths" class="max-h-48 overflow-y-auto bg-slate-900/50 p-2 rounded-md text-sm space-y-1">
+                        <p class="text-slate-500 text-center p-4">Start writing to see sentence analysis.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- WORD LISTS ---
+        const passiveWords = new Set(['was', 'were', 'is', 'are', 'am', 'be', 'been', 'being', 'have', 'has', 'had', 'get', 'got', 'getting', 'gotten', '’m', '’s', '’re', '’ve', '’d', 'hasn’t', 'haven’t', 'hadn’t', 'isn’t', 'aren’t', 'wasn’t', 'weren’t', 'won’t', 'wouldn’t', 'can’t', 'couldn’t', 'shouldn’t', 'wouldn’t’ve']);
+        const badStarts = new Set(['the', 'it', 'a', 'an', 'he', 'she', 'his', 'here', 'this', 'these', 'those', 'they', 'there', 'then', 'i', 'my', 'we', 'our']);
+        const stopWords = new Set(['and', 'but', 'or', 'so', 'because', 'of', 'to', 'for', 'with', 'at', 'in', 'on', 'by', 'from', 'if', 'when', 'where', 'while', 'than', 'as', 'the', 'it', 'about', 'he', 'she', 'his', 'her', 'did', 'not', 'a', 'many', 'that', 'would', 'could', 'should']);
+        const fillerWords = new Set(['very', 'really', 'just', 'only', 'kind of', 'sort of', 'maybe', 'perhaps', 'quite', 'rather', 'somehow', 'somewhat', 'suddenly', 'finally', 'basically', 'actually', 'literally', 'totally', 'completely', 'absolutely', 'obviously', 'definitely', 'clearly', 'simply', 'truly']);
+        const basicWords = new Set(['big', 'small', 'good', 'bad', 'happy', 'sad', 'angry', 'nice', 'mean', 'fun', 'boring', 'fast', 'slow', 'hot', 'cold', 'smart', 'dumb', 'easy', 'hard', 'pretty', 'ugly', 'old', 'young', 'man', 'woman', 'boy', 'girl', 'thing', 'stuff', 'friend', 'child', 'people', 'house', 'car', 'dog', 'cat', 'run', 'walk', 'talk', 'look', 'say', 'go', 'do', 'make', 'see', 'give', 'take', 'find', 'know', 'think', 'want', 'like', 'love']);
+        
+        const allHighlightWords = new Set([...passiveWords, ...badStarts, ...stopWords, ...fillerWords, ...basicWords]);
+
+        // --- DOM ELEMENTS ---
+        const textInput = document.getElementById('text-input');
+        const highlightedOutput = document.getElementById('highlighted-output');
+        const wordCounter = document.getElementById('word-counter');
+        const wordTargetInput = document.getElementById('word-target-input');
+        const setTargetBtn = document.getElementById('set-target-btn');
+        const targetModal = document.getElementById('target-modal');
+        const mainContent = document.getElementById('main-conte
+        const targetDisplay = document.getElementById('target-display');
+        const wordCountWarning = document.getElementById('word-count-warning');
+        const sentenceLengthsDiv = document.getElementById('sentence-lengths');
+        const readabilityScoreEl = document.getElementById('readability-score');
+        const lexicalDiversityEl = document.getElementById('lexical-diversity');
+        const avgSentenceLengthEl = document.getElementById('avg-sentence-length');
+
+        let wordTarget = 0;
+
+        // --- SETUP ---
+        const setupTool = () => {
+            const target = parseInt(wordTargetInput.value, 10);
+            if (target && target > 0) {
+                wordTarget = target;
+                targetDisplay.textContent = wordTarget;
+                targetModal.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                textInput.focus();
+            } else {
+                alert('Please enter a valid word count target.');
+            }
+        };
+        
+        setTargetBtn.addEventListener('click', setupTool);
+        wordTargetInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                setupTool();
+            }
+        });
+
+        // Sync scroll between textarea and highlight div
+        textInput.addEventListener('scroll', () => {
+            highlightedOutput.scrollTop = textInput.scrollTop;
+            highlightedOutput.scrollLeft = textInput.scrollLeft;
+        });
+
+        // --- ANALYSIS LOGIC ---
+        textInput.addEventListener('input', () => {
+            const text = textInput.value;
+            analyzeAndHighlight(text);
+        });
+
+        const analyzeAndHighlight = (text) => {
+            if (!text) {
+                highlightedOutput.innerHTML = '';
+                updateMetrics([], 0);
+                return;
+            }
+
+            const words = text.split(/\b/); // Split by word boundary to keep punctuation
+            const cleanWords = text.toLowerCase().match(/\b[\w']+\b/g) || [];
+            
+            // --- Word Repetition Analysis ---
+            const wordCounts = {};
+            cleanWords.forEach(word => {
+                if (!allHighlightWords.has(word)) {
+                    wordCounts[word] = (wordCounts[word] || 0) + 1;
+                }
+            });
+            const repeatedWords = new Set();
+            for (const word in wordCounts) {
+                if (wordCounts[word] > 3) {
+                    repeatedWords.add(word);
+                }
+            }
+
+            // --- Sentence Analysis ---
+            const sentences = text.match(/[^.!?]+[.!?]*\s*/g) || [];
+            let isFirstWordOfSentence = true;
+
+            const highlightedHTML = words.map(word => {
+                const lowerWord = word.toLowerCase();
+                let className = '';
+
+                if (/\w/.test(lowerWord[0])) { // It's a word, not just space/punctuation
+                    if (passiveWords.has(lowerWord)) className = 'passive';
+                    else if (isFirstWordOfSentence && badStarts.has(lowerWord)) className = 'bad-start';
+                    else if (stopWords.has(lowerWord)) className = 'stop-word';
+                    else if (fillerWords.has(lowerWord)) className = 'filler';
+                    else if (basicWords.has(lowerWord)) className = 'basic';
+                    else if (word.length >= 9) className = 'sophisticated';
+                }
+
+                let processedWord = word;
+                if (className) {
+                    processedWord = `<span class="${className}">${word}</span>`;
+                }
+                if (repeatedWords.has(lowerWord)) {
+                    processedWord = `<strong>${processedWord}</strong>`;
+                }
+                
+                if (/[.!?]/.test(word)) {
+                    isFirstWordOfSentence = true;
+                } else if (/\S/.test(word)) { // Any non-whitespace character
+                    isFirstWordOfSentence = false;
+                }
+
+                return processedWord;
+            }).join('');
+
+            highlightedOutput.innerHTML = highlightedHTML;
+            updateMetrics(sentences, cleanWords.length, cleanWords);
+        };
+        
+        const updateMetrics = (sentences, wordCount, cleanWords = []) => {
+            // Word Count
+            wordCounter.textContent = wordCount;
+            const tenPercent = wordTarget * 0.1;
+            if (wordCount > wordTarget) {
+                wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-red-800 text-red-200 transition-colors';
+                wordCountWarning.classList.remove('hidden');
+            } else if (wordCount >= wordTarget - tenPercent) {
+                wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-green-800 text-green-200 transition-colors';
+                wordCountWarning.classList.add('hidden');
+            } else if (wordCount === wordTarget) {
+                 wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-red-700 text-red-200 transition-colors';
+                 wordCountWarning.classList.remove('hidden');
+            }
+            else {
+                wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-slate-700 transition-colors';
+                wordCountWarning.classList.add('hidden');
+            }
+
+            // Sentence Lengths
+            if (sentences.length > 0) {
+                const sentenceData = sentences.map((s, i) => {
+                    const length = (s.match(/\b[\w']+\b/g) || []).length;
+                    return { text: `Sentence ${i + 1}`, length: length };
+                }).filter(s => s.length > 0);
+
+                sentenceLengthsDiv.innerHTML = sentenceData.map(s => 
+                    `<div class="flex justify-between items-center bg-slate-800 p-1 px-2 rounded">
+                        <span>${s.text}</span>
+                        <span class="font-mono bg-slate-700 px-2 py-0.5 rounded-sm text-xs">${s.length} words</span>
+                    </div>`
+                ).join('');
+
+                const totalSentenceLength = sentenceData.reduce((acc, s) => acc + s.length, 0);
+                const avgLength = sentenceData.length > 0 ? (totalSentenceLength / sentenceData.length).toFixed(1) : 0;
+                avgSentenceLengthEl.textContent = avgLength;
+
+                // Advanced Metrics
+                const syllables = countSyllables(cleanWords.join(' '));
+                readabilityScoreEl.textContent = calculateReadability(wordCount, sentences.length, syllables).toFixed(1);
+
+                const uniqueWords = new Set(cleanWords).size;
+                const diversity = wordCount > 0 ? (uniqueWords / wordCount * 100).toFixed(1) + '%' : '0%';
+                lexicalDiversityEl.textContent = diversity;
+
+
+            } else {
+                sentenceLengthsDiv.innerHTML = '<p class="text-slate-500 text-center p-4">Start writing to see sentence analysis.</p>';
+                readabilityScoreEl.textContent = '--';
+                lexicalDiversityEl.textContent = '--';
+                avgSentenceLengthEl.textContent = '--';
+            }
+        };
+
+        // --- UTILITY FUNCTIONS FOR ADVANCED METRICS ---
+
+        // Flesch-Kincaid Readability Formula
+        const calculateReadability = (totalWords, totalSentences, totalSyllables) => {
+            if (totalWords === 0 || totalSentences === 0) return 0;
+            return 0.39 * (totalWords / totalSentences) + 11.8 * (totalSyllables / totalWords) - 15.59;
+        };
+        
+        // Simple heuristic for syllable counting
+        const countSyllables = (text) => {
+            text = text.toLowerCase();
+            if (text.length <= 3) return 1;
+            text = text.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
+            text = text.replace(/^y/, '');
+            const match = text.match(/[aeiouy]{1,2}/g);
+            return match ? match.length : 0;
+        };
+
+    </script>
+</body>
+</html>
