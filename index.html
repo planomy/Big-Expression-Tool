@@ -94,6 +94,11 @@
                     <div id="highlighted-output" class="editor-font"></div>
                     <textarea id="text-input" class="editor-font" rows="30" placeholder="Paste or start writing your text here..."></textarea>
                 </div>
+                <div class="mt-4 flex justify-end">
+                    <button id="copy-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Copy to Clipboard
+                    </button>
+                </div>
             </div>
 
             <!-- Right Column: Analysis -->
@@ -166,72 +171,114 @@
         
         const allHighlightWords = new Set([...passiveWords, ...badStarts, ...stopWords, ...fillerWords, ...basicWords]);
 
-        // --- DOM ELEMENTS ---
-        const textInput = document.getElementById('text-input');
-        const highlightedOutput = document.getElementById('highlighted-output');
-        const wordCounter = document.getElementById('word-counter');
-        const wordTargetInput = document.getElementById('word-target-input');
-        const setTargetBtn = document.getElementById('set-target-btn');
-        const targetModal = document.getElementById('target-modal');
-        const mainContent = document.getElementById('main-content');
-        const targetDisplay = document.getElementById('target-display');
-        const wordCountWarning = document.getElementById('word-count-warning');
-        const sentenceLengthsDiv = document.getElementById('sentence-lengths');
-        const readabilityScoreEl = document.getElementById('readability-score');
-        const lexicalDiversityEl = document.getElementById('lexical-diversity');
-        const avgSentenceLengthEl = document.getElementById('avg-sentence-length');
-
         let wordTarget = 0;
 
-        // --- SETUP ---
-        const setupTool = () => {
-            const target = parseInt(wordTargetInput.value, 10);
-            if (target && target > 0) {
-                wordTarget = target;
-                targetDisplay.textContent = wordTarget;
-                targetModal.classList.add('hidden');
-                mainContent.classList.remove('hidden');
-                textInput.focus();
-            } else {
-                const modalBox = document.querySelector('#target-modal > div');
-                modalBox.classList.add('shake-error');
-                wordTargetInput.focus();
-                setTimeout(() => {
-                    modalBox.classList.remove('shake-error');
-                }, 820);
-            }
-        };
-        
-        setTargetBtn.addEventListener('click', setupTool);
-        wordTargetInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                setupTool();
-            }
+        // --- All code waits for the DOM to be ready ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM ELEMENTS ---
+            const textInput = document.getElementById('text-input');
+            const highlightedOutput = document.getElementById('highlighted-output');
+            const wordCounter = document.getElementById('word-counter');
+            const wordTargetInput = document.getElementById('word-target-input');
+            const setTargetBtn = document.getElementById('set-target-btn');
+            const targetModal = document.getElementById('target-modal');
+            const mainContent = document.getElementById('main-content');
+            const targetDisplay = document.getElementById('target-display');
+            const wordCountWarning = document.getElementById('word-count-warning');
+            const sentenceLengthsDiv = document.getElementById('sentence-lengths');
+            const readabilityScoreEl = document.getElementById('readability-score');
+            const lexicalDiversityEl = document.getElementById('lexical-diversity');
+            const avgSentenceLengthEl = document.getElementById('avg-sentence-length');
+            const copyBtn = document.getElementById('copy-btn');
+
+            // --- SETUP ---
+            const setupTool = () => {
+                const target = parseInt(wordTargetInput.value, 10);
+                if (target && target > 0) {
+                    wordTarget = target;
+                    targetDisplay.textContent = wordTarget;
+                    targetModal.classList.add('hidden');
+                    mainContent.classList.remove('hidden');
+                    textInput.focus();
+                } else {
+                    const modalBox = document.querySelector('#target-modal > div');
+                    modalBox.classList.add('shake-error');
+                    wordTargetInput.focus();
+                    setTimeout(() => {
+                        modalBox.classList.remove('shake-error');
+                    }, 820);
+                }
+            };
+            
+            setTargetBtn.addEventListener('click', setupTool);
+            wordTargetInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    setupTool();
+                }
+            });
+
+            // Sync scroll between textarea and highlight div
+            textInput.addEventListener('scroll', () => {
+                highlightedOutput.scrollTop = textInput.scrollTop;
+                highlightedOutput.scrollLeft = textInput.scrollLeft;
+            });
+
+            // --- ANALYSIS LOGIC ---
+            textInput.addEventListener('input', () => {
+                const text = textInput.value;
+                analyzeAndHighlight(text);
+            });
+            
+            // --- COPY BUTTON LOGIC ---
+            copyBtn.addEventListener('click', () => {
+                const textToCopy = textInput.value;
+                if (!textToCopy) return;
+
+                const textArea = document.createElement('textarea');
+                textArea.value = textToCopy;
+                textArea.style.top = "0";
+                textArea.style.left = "0";
+                textArea.style.position = "fixed";
+
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                try {
+                    document.execCommand('copy');
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.classList.add('bg-green-700', 'hover:bg-green-600');
+                    copyBtn.classList.remove('bg-slate-700', 'hover:bg-slate-600');
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy to Clipboard';
+                        copyBtn.classList.remove('bg-green-700', 'hover:bg-green-600');
+                        copyBtn.classList.add('bg-slate-700', 'hover:bg-slate-600');
+                    }, 2000);
+                } catch (err) {
+                     copyBtn.textContent = 'Copy Failed';
+                    copyBtn.classList.add('bg-red-700', 'hover:bg-red-600');
+                     setTimeout(() => {
+                        copyBtn.textContent = 'Copy to Clipboard';
+                        copyBtn.classList.remove('bg-red-700', 'hover:bg-red-600');
+                    }, 2000);
+                }
+                document.body.removeChild(textArea);
+            });
         });
 
-        // Sync scroll between textarea and highlight div
-        textInput.addEventListener('scroll', () => {
-            highlightedOutput.scrollTop = textInput.scrollTop;
-            highlightedOutput.scrollLeft = textInput.scrollLeft;
-        });
-
-        // --- ANALYSIS LOGIC ---
-        textInput.addEventListener('input', () => {
-            const text = textInput.value;
-            analyzeAndHighlight(text);
-        });
+        // --- All functions below are called by the event listeners ---
 
         const analyzeAndHighlight = (text) => {
+            const highlightedOutput = document.getElementById('highlighted-output');
             if (!text) {
                 highlightedOutput.innerHTML = '';
                 updateMetrics([], 0);
                 return;
             }
 
-            const words = text.split(/\b/); // Split by word boundary to keep punctuation
+            const words = text.split(/\b/);
             const cleanWords = text.toLowerCase().match(/\b[\w']+\b/g) || [];
             
-            // --- Word Repetition Analysis ---
             const wordCounts = {};
             cleanWords.forEach(word => {
                 if (!allHighlightWords.has(word)) {
@@ -245,7 +292,6 @@
                 }
             }
 
-            // --- Sentence Analysis ---
             const sentences = text.match(/[^.!?]+[.!?]*\s*/g) || [];
             let isFirstWordOfSentence = true;
 
@@ -253,7 +299,7 @@
                 const lowerWord = word.toLowerCase();
                 let className = '';
 
-                if (/\w/.test(lowerWord[0])) { // It's a word, not just space/punctuation
+                if (/\w/.test(lowerWord[0])) {
                     if (passiveWords.has(lowerWord)) className = 'passive';
                     else if (isFirstWordOfSentence && badStarts.has(lowerWord)) className = 'bad-start';
                     else if (stopWords.has(lowerWord)) className = 'stop-word';
@@ -272,7 +318,7 @@
                 
                 if (/[.!?]/.test(word)) {
                     isFirstWordOfSentence = true;
-                } else if (/\S/.test(word)) { // Any non-whitespace character
+                } else if (/\S/.test(word)) {
                     isFirstWordOfSentence = false;
                 }
 
@@ -284,7 +330,13 @@
         };
         
         const updateMetrics = (sentences, wordCount, cleanWords = []) => {
-            // Word Count
+            const wordCounter = document.getElementById('word-counter');
+            const wordCountWarning = document.getElementById('word-count-warning');
+            const sentenceLengthsDiv = document.getElementById('sentence-lengths');
+            const readabilityScoreEl = document.getElementById('readability-score');
+            const lexicalDiversityEl = document.getElementById('lexical-diversity');
+            const avgSentenceLengthEl = document.getElementById('avg-sentence-length');
+
             wordCounter.textContent = wordCount;
             const tenPercent = wordTarget * 0.1;
             if (wordCount > wordTarget) {
@@ -302,7 +354,6 @@
                 wordCountWarning.classList.add('hidden');
             }
 
-            // Sentence Lengths
             if (sentences.length > 0) {
                 const sentenceData = sentences.map((s, i) => {
                     const length = (s.match(/\b[\w']+\b/g) || []).length;
@@ -320,14 +371,12 @@
                 const avgLength = sentenceData.length > 0 ? (totalSentenceLength / sentenceData.length).toFixed(1) : 0;
                 avgSentenceLengthEl.textContent = avgLength;
 
-                // Advanced Metrics
                 const syllables = countSyllables(cleanWords.join(' '));
                 readabilityScoreEl.textContent = calculateReadability(wordCount, sentences.length, syllables).toFixed(1);
 
                 const uniqueWords = new Set(cleanWords).size;
                 const diversity = wordCount > 0 ? (uniqueWords / wordCount * 100).toFixed(1) + '%' : '0%';
                 lexicalDiversityEl.textContent = diversity;
-
 
             } else {
                 sentenceLengthsDiv.innerHTML = '<p class="text-slate-500 text-center p-4">Start writing to see sentence analysis.</p>';
@@ -337,15 +386,11 @@
             }
         };
 
-        // --- UTILITY FUNCTIONS FOR ADVANCED METRICS ---
-
-        // Flesch-Kincaid Readability Formula
         const calculateReadability = (totalWords, totalSentences, totalSyllables) => {
             if (totalWords === 0 || totalSentences === 0) return 0;
             return 0.39 * (totalWords / totalSentences) + 11.8 * (totalSyllables / totalWords) - 15.59;
         };
         
-        // Simple heuristic for syllable counting
         const countSyllables = (text) => {
             text = text.toLowerCase();
             if (text.length <= 3) return 1;
@@ -354,7 +399,6 @@
             const match = text.match(/[aeiouy]{1,2}/g);
             return match ? match.length : 0;
         };
-
     </script>
 </body>
 </html>
