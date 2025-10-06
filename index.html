@@ -75,8 +75,15 @@
     <div id="target-modal" class="fixed inset-0 bg-slate-900 bg-opacity-80 flex items-center justify-center z-50">
         <div class="bg-slate-800 p-8 rounded-lg shadow-2xl w-full max-w-sm text-center">
             <h1 class="text-3xl font-bold text-white mb-2">BIG Expression Tool</h1>
-            <p class="text-slate-400 mb-6">Enter your target word count to begin.</p>
-            <input type="number" id="word-target-input" class="bg-slate-700 text-white w-full p-3 rounded-md text-center text-xl focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 500">
+            <p class="text-slate-400 mb-6">Select your grade level and word count to begin.</p>
+            <div class="space-y-4">
+                 <select id="grade-level-select" class="bg-slate-700 text-white w-full p-3 rounded-md text-center text-l focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="senior">Senior (Y10-12) - Target &lt; 28%</option>
+                    <option value="middle">Middle (Y7-9) - Target &lt; 38%</option>
+                    <option value="junior">Junior (Y4-6) - Target &lt; 48%</option>
+                </select>
+                <input type="number" id="word-target-input" class="bg-slate-700 text-white w-full p-3 rounded-md text-center text-xl focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 500">
+            </div>
             <button id="set-target-btn" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg w-full transition-colors">Start Writing</button>
         </div>
     </div>
@@ -135,17 +142,50 @@
                  <div>
                     <h3 class="text-lg font-semibold mb-3">Advanced Metrics</h3>
                     <div class="space-y-3 bg-slate-700/50 p-4 rounded-md">
-                        <div class="flex justify-between text-sm">
+                        <div class="flex justify-between text-sm items-baseline">
                             <span class="text-slate-400">Readability (Grade):</span>
-                            <span id="readability-score" class="font-mono font-semibold">--</span>
+                            <div class="relative group">
+                                <span id="readability-score" class="font-mono font-semibold">--</span>
+                                <span class="absolute bottom-full mb-2 w-max max-w-xs -translate-x-1/2 left-1/2 hidden group-hover:block bg-slate-900 text-slate-200 text-xs rounded-md py-1.5 px-3 shadow-lg z-10">
+                                    Green means the complexity is at or above your grade level. Red means it's below the target.
+                                    <span class="block mt-1 font-semibold text-blue-300" id="readability-aim"></span>
+                                </span>
+                            </div>
                         </div>
-                         <div class="flex justify-between text-sm">
+                         <div class="flex justify-between text-sm items-baseline">
                             <span class="text-slate-400">Lexical Diversity:</span>
-                            <span id="lexical-diversity" class="font-mono font-semibold">--</span>
+                             <div class="relative group">
+                                <span id="lexical-diversity" class="font-mono font-semibold">--</span>
+                                <span class="absolute bottom-full mb-2 w-max max-w-xs -translate-x-1/2 left-1/2 hidden group-hover:block bg-slate-900 text-slate-200 text-xs rounded-md py-1.5 px-3 shadow-lg z-10">
+                                    Green means your vocabulary is suitably varied. Red suggests using a wider range of words.
+                                    <span class="block mt-1 font-semibold text-blue-300" id="diversity-aim"></span>
+                                </span>
+                            </div>
                         </div>
-                        <div class="flex justify-between text-sm">
+                        <div class="flex justify-between text-sm items-baseline">
                             <span class="text-slate-400">Avg Sentence Length:</span>
-                            <span id="avg-sentence-length" class="font-mono font-semibold">--</span>
+                             <div class="relative group">
+                                <span id="avg-sentence-length" class="font-mono font-semibold">--</span>
+                                <span class="absolute bottom-full mb-2 w-max max-w-xs -translate-x-1/2 left-1/2 hidden group-hover:block bg-slate-900 text-slate-200 text-xs rounded-md py-1.5 px-3 shadow-lg z-10">
+                                    Green means your sentence length is in an ideal range for good rhythm. Red means sentences may be too long or short.
+                                    <span class="block mt-1 font-semibold text-blue-300" id="avg-length-aim"></span>
+                                </span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm items-baseline">
+                                <span class="text-slate-400">Highlighted Word %:</span>
+                                <div class="relative group">
+                                    <span id="highlighted-word-percentage" class="font-mono font-semibold transition-colors">--</span>
+                                     <span class="absolute bottom-full mb-2 w-max max-w-xs -translate-x-1/2 left-1/2 hidden group-hover:block bg-slate-900 text-slate-200 text-xs rounded-md py-1.5 px-3 shadow-lg z-10">
+                                        Green means you're using few low-impact words. Red means too many words are filler, passive, or basic.
+                                        <span class="block mt-1 font-semibold text-blue-300" id="highlight-aim"></span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span id="highlight-target-display" class="text-xs text-slate-500 whitespace-nowrap">(Target: &lt;28%)</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -172,6 +212,32 @@
         const allHighlightWords = new Set([...passiveWords, ...badStarts, ...stopWords, ...fillerWords, ...basicWords]);
 
         let wordTarget = 0;
+        let highlightTargetPercentage = 28; // Default to Senior
+        let selectedGrade = 'senior'; // To store the selected grade
+        const gradeTargets = {
+            senior: 28,
+            middle: 38,
+            junior: 48
+        };
+
+        const metricTargets = {
+            junior: {
+                readability: 4,
+                diversity: 30,
+                avgLength: { min: 8, max: 12 }
+            },
+            middle: {
+                readability: 7,
+                diversity: 35,
+                avgLength: { min: 12, max: 16 }
+            },
+            senior: {
+                readability: 10,
+                diversity: 40,
+                avgLength: { min: 15, max: 20 }
+            }
+        };
+
 
         // --- All code waits for the DOM to be ready ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -180,6 +246,7 @@
             const highlightedOutput = document.getElementById('highlighted-output');
             const wordCounter = document.getElementById('word-counter');
             const wordTargetInput = document.getElementById('word-target-input');
+            const gradeLevelSelect = document.getElementById('grade-level-select');
             const setTargetBtn = document.getElementById('set-target-btn');
             const targetModal = document.getElementById('target-modal');
             const mainContent = document.getElementById('main-content');
@@ -189,7 +256,13 @@
             const readabilityScoreEl = document.getElementById('readability-score');
             const lexicalDiversityEl = document.getElementById('lexical-diversity');
             const avgSentenceLengthEl = document.getElementById('avg-sentence-length');
+            const highlightedWordPercentageEl = document.getElementById('highlighted-word-percentage');
+            const highlightTargetDisplay = document.getElementById('highlight-target-display');
             const copyBtn = document.getElementById('copy-btn');
+            const readabilityAim = document.getElementById('readability-aim');
+            const diversityAim = document.getElementById('diversity-aim');
+            const avgLengthAim = document.getElementById('avg-length-aim');
+            const highlightAim = document.getElementById('highlight-aim');
 
             // --- SETUP ---
             const setupTool = () => {
@@ -197,6 +270,12 @@
                 if (target && target > 0) {
                     wordTarget = target;
                     targetDisplay.textContent = wordTarget;
+
+                    selectedGrade = gradeLevelSelect.value;
+                    highlightTargetPercentage = gradeTargets[selectedGrade];
+                    highlightTargetDisplay.textContent = `(Target: <${highlightTargetPercentage}%)`;
+                    updateTooltipAims(selectedGrade);
+
                     targetModal.classList.add('hidden');
                     mainContent.classList.remove('hidden');
                     textInput.focus();
@@ -264,141 +343,188 @@
                 }
                 document.body.removeChild(textArea);
             });
-        });
 
-        // --- All functions below are called by the event listeners ---
+            // --- All functions below are now inside DOMContentLoaded ---
 
-        const analyzeAndHighlight = (text) => {
-            const highlightedOutput = document.getElementById('highlighted-output');
-            if (!text) {
-                highlightedOutput.innerHTML = '';
-                updateMetrics([], 0);
-                return;
+            const updateTooltipAims = (grade) => {
+                const targets = metricTargets[grade];
+                const highlightTarget = gradeTargets[grade];
+
+                readabilityAim.textContent = `Aim for > ${targets.readability}`;
+                diversityAim.textContent = `Aim for > ${targets.diversity}%`;
+                avgLengthAim.textContent = `Aim for ${targets.avgLength.min} - ${targets.avgLength.max} words`;
+                highlightAim.textContent = `Aim for < ${highlightTarget}%`;
             }
 
-            const words = text.split(/\b/);
-            const cleanWords = text.toLowerCase().match(/\b[\w']+\b/g) || [];
-            
-            const wordCounts = {};
-            cleanWords.forEach(word => {
-                if (!allHighlightWords.has(word)) {
-                    wordCounts[word] = (wordCounts[word] || 0) + 1;
-                }
-            });
-            const repeatedWords = new Set();
-            for (const word in wordCounts) {
-                if (wordCounts[word] > 3) {
-                    repeatedWords.add(word);
-                }
-            }
-
-            const sentences = text.match(/[^.!?]+[.!?]*\s*/g) || [];
-            let isFirstWordOfSentence = true;
-
-            const highlightedHTML = words.map(word => {
-                const lowerWord = word.toLowerCase();
-                let className = '';
-
-                if (/\w/.test(lowerWord[0])) {
-                    if (passiveWords.has(lowerWord)) className = 'passive';
-                    else if (isFirstWordOfSentence && badStarts.has(lowerWord)) className = 'bad-start';
-                    else if (stopWords.has(lowerWord)) className = 'stop-word';
-                    else if (fillerWords.has(lowerWord)) className = 'filler';
-                    else if (basicWords.has(lowerWord)) className = 'basic';
-                    else if (word.length >= 9) className = 'sophisticated';
+            const analyzeAndHighlight = (text) => {
+                if (!text) {
+                    highlightedOutput.innerHTML = '';
+                    updateMetrics([], 0);
+                    return;
                 }
 
-                let processedWord = word;
-                if (className) {
-                    processedWord = `<span class="${className}">${word}</span>`;
-                }
-                if (repeatedWords.has(lowerWord)) {
-                    processedWord = `<strong>${processedWord}</strong>`;
-                }
+                const words = text.split(/\b/);
+                const cleanWords = text.toLowerCase().match(/\b[\w']+\b/g) || [];
                 
-                if (/[.!?]/.test(word)) {
-                    isFirstWordOfSentence = true;
-                } else if (/\S/.test(word)) {
-                    isFirstWordOfSentence = false;
+                const wordCounts = {};
+                cleanWords.forEach(word => {
+                    if (!allHighlightWords.has(word)) {
+                        wordCounts[word] = (wordCounts[word] || 0) + 1;
+                    }
+                });
+                const repeatedWords = new Set();
+                for (const word in wordCounts) {
+                    if (wordCounts[word] > 3) {
+                        repeatedWords.add(word);
+                    }
                 }
 
-                return processedWord;
-            }).join('');
+                const sentences = text.match(/[^.!?]+[.!?]*\s*/g) || [];
+                let isFirstWordOfSentence = true;
 
-            highlightedOutput.innerHTML = highlightedHTML;
-            updateMetrics(sentences, cleanWords.length, cleanWords);
-        };
-        
-        const updateMetrics = (sentences, wordCount, cleanWords = []) => {
-            const wordCounter = document.getElementById('word-counter');
-            const wordCountWarning = document.getElementById('word-count-warning');
-            const sentenceLengthsDiv = document.getElementById('sentence-lengths');
-            const readabilityScoreEl = document.getElementById('readability-score');
-            const lexicalDiversityEl = document.getElementById('lexical-diversity');
-            const avgSentenceLengthEl = document.getElementById('avg-sentence-length');
+                const highlightedHTML = words.map(word => {
+                    const lowerWord = word.toLowerCase();
+                    let className = '';
 
-            wordCounter.textContent = wordCount;
-            const tenPercent = wordTarget * 0.1;
-            if (wordCount > wordTarget) {
-                wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-red-800 text-red-200 transition-colors';
-                wordCountWarning.classList.remove('hidden');
-            } else if (wordCount >= wordTarget - tenPercent) {
-                wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-green-800 text-green-200 transition-colors';
-                wordCountWarning.classList.add('hidden');
-            } else if (wordCount === wordTarget) {
-                 wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-red-700 text-red-200 transition-colors';
-                 wordCountWarning.classList.remove('hidden');
-            }
-            else {
-                wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-slate-700 transition-colors';
-                wordCountWarning.classList.add('hidden');
-            }
+                    if (/\w/.test(lowerWord[0])) {
+                        if (passiveWords.has(lowerWord)) className = 'passive';
+                        else if (isFirstWordOfSentence && badStarts.has(lowerWord)) className = 'bad-start';
+                        else if (stopWords.has(lowerWord)) className = 'stop-word';
+                        else if (fillerWords.has(lowerWord)) className = 'filler';
+                        else if (basicWords.has(lowerWord)) className = 'basic';
+                        else if (word.length >= 9) className = 'sophisticated';
+                    }
 
-            if (sentences.length > 0) {
-                const sentenceData = sentences.map((s, i) => {
-                    const length = (s.match(/\b[\w']+\b/g) || []).length;
-                    return { text: `Sentence ${i + 1}`, length: length };
-                }).filter(s => s.length > 0);
+                    let processedWord = word;
+                    if (className) {
+                        processedWord = `<span class="${className}">${word}</span>`;
+                    }
+                    if (repeatedWords.has(lowerWord)) {
+                        processedWord = `<strong>${processedWord}</strong>`;
+                    }
+                    
+                    if (/[.!?]/.test(word)) {
+                        isFirstWordOfSentence = true;
+                    } else if (/\S/.test(word)) {
+                        isFirstWordOfSentence = false;
+                    }
 
-                sentenceLengthsDiv.innerHTML = sentenceData.map(s => 
-                    `<div class="flex justify-between items-center bg-slate-800 p-1 px-2 rounded">
-                        <span>${s.text}</span>
-                        <span class="font-mono bg-slate-700 px-2 py-0.5 rounded-sm text-xs">${s.length} words</span>
-                    </div>`
-                ).join('');
+                    return processedWord;
+                }).join('');
 
-                const totalSentenceLength = sentenceData.reduce((acc, s) => acc + s.length, 0);
-                const avgLength = sentenceData.length > 0 ? (totalSentenceLength / sentenceData.length).toFixed(1) : 0;
-                avgSentenceLengthEl.textContent = avgLength;
+                highlightedOutput.innerHTML = highlightedHTML;
+                updateMetrics(sentences, cleanWords.length, cleanWords);
+            };
+            
+            const updateMetrics = (sentences, wordCount, cleanWords = []) => {
+                wordCounter.textContent = wordCount;
+                const tenPercent = wordTarget * 0.1;
+                if (wordCount > wordTarget) {
+                    wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-red-800 text-red-200 transition-colors';
+                    wordCountWarning.classList.remove('hidden');
+                } else if (wordCount >= wordTarget - tenPercent) {
+                    wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-green-800 text-green-200 transition-colors';
+                    wordCountWarning.classList.add('hidden');
+                } else if (wordCount === wordTarget) {
+                     wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-red-700 text-red-200 transition-colors';
+                     wordCountWarning.classList.remove('hidden');
+                }
+                else {
+                    wordCounter.className = 'text-5xl font-bold text-center py-4 rounded-lg bg-slate-700 transition-colors';
+                    wordCountWarning.classList.add('hidden');
+                }
 
-                const syllables = countSyllables(cleanWords.join(' '));
-                readabilityScoreEl.textContent = calculateReadability(wordCount, sentences.length, syllables).toFixed(1);
+                if (sentences.length > 0) {
+                    const sentenceData = sentences.map((s, i) => {
+                        const length = (s.match(/\b[\w']+\b/g) || []).length;
+                        return { text: `Sentence ${i + 1}`, length: length };
+                    }).filter(s => s.length > 0);
 
-                const uniqueWords = new Set(cleanWords).size;
-                const diversity = wordCount > 0 ? (uniqueWords / wordCount * 100).toFixed(1) + '%' : '0%';
-                lexicalDiversityEl.textContent = diversity;
+                    sentenceLengthsDiv.innerHTML = sentenceData.map(s => 
+                        `<div class="flex justify-between items-center bg-slate-800 p-1 px-2 rounded">
+                            <span>${s.text}</span>
+                            <span class="font-mono bg-slate-700 px-2 py-0.5 rounded-sm text-xs">${s.length} words</span>
+                        </div>`
+                    ).join('');
 
-            } else {
-                sentenceLengthsDiv.innerHTML = '<p class="text-slate-500 text-center p-4">Start writing to see sentence analysis.</p>';
-                readabilityScoreEl.textContent = '--';
-                lexicalDiversityEl.textContent = '--';
-                avgSentenceLengthEl.textContent = '--';
-            }
-        };
+                    const totalSentenceLength = sentenceData.reduce((acc, s) => acc + s.length, 0);
+                    const avgLength = sentenceData.length > 0 ? (totalSentenceLength / sentenceData.length).toFixed(1) : 0;
+                    avgSentenceLengthEl.textContent = avgLength;
 
-        const calculateReadability = (totalWords, totalSentences, totalSyllables) => {
-            if (totalWords === 0 || totalSentences === 0) return 0;
-            return 0.39 * (totalWords / totalSentences) + 11.8 * (totalSyllables / totalWords) - 15.59;
-        };
-        
-        const countSyllables = (text) => {
-            text = text.toLowerCase();
-            if (text.length <= 3) return 1;
-            text = text.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
-            text = text.replace(/^y/, '');
-            const match = text.match(/[aeiouy]{1,2}/g);
-            return match ? match.length : 0;
-        };
+                    const syllables = countSyllables(cleanWords.join(' '));
+                    readabilityScoreEl.textContent = calculateReadability(wordCount, sentences.length, syllables).toFixed(1);
+
+                    const uniqueWords = new Set(cleanWords).size;
+                    const diversity = wordCount > 0 ? (uniqueWords / wordCount * 100).toFixed(1) + '%' : '0%';
+                    lexicalDiversityEl.textContent = diversity;
+
+                    // --- Highlighted Word % Calculation ---
+                    let highlightedWordCount = 0;
+                    cleanWords.forEach(word => {
+                        if(allHighlightWords.has(word)) {
+                            highlightedWordCount++;
+                        }
+                    });
+                    const percentage = wordCount > 0 ? (highlightedWordCount / wordCount * 100) : 0;
+                    highlightedWordPercentageEl.textContent = percentage.toFixed(1) + '%';
+                    
+                    // --- Metric Coloring Logic ---
+                    const targets = metricTargets[selectedGrade];
+                    const readabilityValue = parseFloat(readabilityScoreEl.textContent);
+                    const diversityValue = parseFloat(lexicalDiversityEl.textContent);
+                    const avgLengthValue = parseFloat(avgSentenceLengthEl.textContent);
+                    
+                    // Color Readability
+                    readabilityScoreEl.classList.remove('text-green-400', 'text-red-400');
+                    if (readabilityValue >= targets.readability) readabilityScoreEl.classList.add('text-green-400');
+                    else readabilityScoreEl.classList.add('text-red-400');
+                    
+                    // Color Lexical Diversity
+                    lexicalDiversityEl.classList.remove('text-green-400', 'text-red-400');
+                    if (diversityValue >= targets.diversity) lexicalDiversityEl.classList.add('text-green-400');
+                    else lexicalDiversityEl.classList.add('text-red-400');
+
+                    // Color Avg Sentence Length
+                    avgSentenceLengthEl.classList.remove('text-green-400', 'text-red-400');
+                    if (avgLengthValue >= targets.avgLength.min && avgLengthValue <= targets.avgLength.max) avgSentenceLengthEl.classList.add('text-green-400');
+                    else avgSentenceLengthEl.classList.add('text-red-400');
+
+                    // Color Highlighted Word %
+                    highlightedWordPercentageEl.classList.remove('text-green-400', 'text-red-400');
+                    if (percentage > highlightTargetPercentage) {
+                        highlightedWordPercentageEl.classList.add('text-red-400');
+                    } else {
+                        highlightedWordPercentageEl.classList.add('text-green-400');
+                    }
+
+
+                } else {
+                    sentenceLengthsDiv.innerHTML = '<p class="text-slate-500 text-center p-4">Start writing to see sentence analysis.</p>';
+                    readabilityScoreEl.textContent = '--';
+                    lexicalDiversityEl.textContent = '--';
+                    avgSentenceLengthEl.textContent = '--';
+                    highlightedWordPercentageEl.textContent = '--';
+                    readabilityScoreEl.classList.remove('text-green-400', 'text-red-400');
+                    lexicalDiversityEl.classList.remove('text-green-400', 'text-red-400');
+                    avgSentenceLengthEl.classList.remove('text-green-400', 'text-red-400');
+                    highlightedWordPercentageEl.classList.remove('text-green-400', 'text-red-400');
+                }
+            };
+
+            const calculateReadability = (totalWords, totalSentences, totalSyllables) => {
+                if (totalWords === 0 || totalSentences === 0) return 0;
+                return 0.39 * (totalWords / totalSentences) + 11.8 * (totalSyllables / totalWords) - 15.59;
+            };
+            
+            const countSyllables = (text) => {
+                text = text.toLowerCase();
+                if (text.length <= 3) return 1;
+                text = text.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
+                text = text.replace(/^y/, '');
+                const match = text.match(/[aeiouy]{1,2}/g);
+                return match ? match.length : 0;
+            };
+        });
     </script>
 </body>
 </html>
